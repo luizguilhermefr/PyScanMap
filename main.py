@@ -1,5 +1,7 @@
 import sys
 
+import lib.ping as ping
+
 ARG_COUNT = 3
 MASK_LEN = 32
 
@@ -7,6 +9,7 @@ MASK_LEN = 32
 def fill_missing_zeros(b):
     missing = 8 - len(b)
     return '0' * missing + b
+
 
 def address2bin(addr):
     return ''.join([fill_missing_zeros(bin(int(n))[2:]) for n in addr.split('.')])
@@ -39,4 +42,6 @@ available_addresses = 2 ** zeros_count - 2
 
 net_address = make_valid_addresses(bin_addr[:ones_count], available_addresses)
 
-print(net_address)
+for address in net_address:
+    for port in range(0, 2 ** 16 + 1):
+        print(address + ':' + str(port), ping.do_one(address, 1, port=port))
