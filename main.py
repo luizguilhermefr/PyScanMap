@@ -1,78 +1,60 @@
 import sys
-import socket
+import re
+import argparse
 
-from ping3 import ping
+from network_scanner import NetworkScanner
 
-ARG_COUNT = 3
-MASK_LEN = 32
+VERSION = '1.0'
+IPV4_REGEX = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+IPV6_REGEX = "(?<![:.\w])(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}(?![:.\w])"
 
-
-def fill_missing_zeros(b):
-    missing = 8 - len(b)
-    return '0' * missing + b
-
-
-def address2bin(addr):
-    return ''.join([fill_missing_zeros(bin(int(n))[2:]) for n in addr.split('.')])
+network = None
+mask = None
 
 
-def bin2address(b):
-    parts = [b[:8], b[8:16], b[16:24], b[24:32]]
-    return '.'.join([str(int(p, 2)) for p in parts])
+def validate_arguments():
+    if not re.compile(IPV4_REGEX).match(network):
+        if re.compile(IPV6_REGEX).match(network):
+            raise Exception("IPv6 is not supported. Please provide a valid IPv4 address for network.")
+        raise Exception("Please provide a valid IPv4 address for network.")
 
-
-def make_valid_addresses(fixed_part, available_addresses):
-    address = []
-    for i in range(1, available_addresses + 1):
-        var_part = fill_missing_zeros(bin(i)[2:])
-        address.append(bin2address(fixed_part + var_part))
-    return address
-
-
-def check_ports(host, latency):
-    ports_alive = []
-    for port in range(0, 2 ** 16 + 1):
-        if check_port(host, port, latency):
-            ports_alive.append(port)
-    return ports_alive
-
-
-def check_port(host, port, latency):
-    s = socket.socket()
-    s.settimeout(latency * 1.5)
-    try:
-        s.connect((host, port))
-        status = True
-    except:
-        status = False
-    s.close()
-    return status
+    if not re.compile(IPV4_REGEX).match(mask):
+        raise Exception("Please provide a valid IPv4 mask.")
 
 
 def main():
-    if len(sys.argv) != ARG_COUNT:
-        raise Exception("Invalid parameters.")
+    parser = argparse.ArgumentParser(
+        prog='pyscanmap',
+        description='PyScanMap makes it easy to scan your network hosts and their open ports',
+        epilog='By Luiz Rosa & Renan Tashiro'
+    )
+    parser.add_argument(
+        '-v',
+        '--version',
+        action='version',
+        version='%(prog)s ' + VERSION
+    )
+    parser.add_argument(
+        '-n',
+        '--network',
+        action='store_const',
+        dest='network',
+        type=str,
+        help='IPv4 address for the network'
+    )
+    parser.add_argument(
+        '-m',
+        '--mask',
+        action='store_const',
+        dest='mask',
+        type=str,
+        help='Mask for the IPv4 address, expressed as an IPv4 address'
+    )
+    parser.parse_args(sys.argv[1:])
+    validate_arguments()
 
-    address = sys.argv[1]
-    mask = sys.argv[2]
-
-    bin_addr = address2bin(address)
-    bin_mask = address2bin(mask)
-    ones_count = sum(x == '1' for x in bin_mask)
-    zeros_count = MASK_LEN - ones_count
-    available_addresses = 2 ** zeros_count - 2
-
-    net_address = make_valid_addresses(bin_addr[:ones_count], available_addresses)
-
-    for address in net_address:
-        latency = ping(address, ttl=1)
-        if latency is not None:
-            print('[%fs] host %s is being used..checking ports' % (latency, address))
-            ports_alive = check_ports(address, latency)
-            for port in ports_alive:
-                print('port %d is open' % port)
-        else:
-            print('host %s is not alive' % address)
+    network_scanner = NetworkScanner(network, mask)
+    network_scanner.scan()
 
 
 if __name__ == '__main__':
