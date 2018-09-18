@@ -34,18 +34,23 @@ def main():
     parser.add_argument(
         '-n',
         '--network',
-        help='IPv4 address for the network'
+        help='IPv4 address for the network',
+        required=True
     )
     parser.add_argument(
         '-m',
         '--mask',
-        help='Mask for the IPv4 address, expressed as an IPv4 address'
+        help='Mask for the IPv4 address, expressed as an IPv4 address',
+        required=True
     )
     args = parser.parse_args(sys.argv[1:])
     validate_arguments(args.network, args.mask)
 
     network_scanner = NetworkScanner(args.network, args.mask)
-    network_scanner.scan()
+    try:
+        network_scanner.scan()
+    except KeyboardInterrupt:
+        sys.exit(0)
 
 
 if __name__ == '__main__':

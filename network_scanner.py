@@ -1,4 +1,5 @@
 import socket
+import threading
 from ping3 import ping
 
 MASK_LEN = 32
@@ -26,18 +27,18 @@ class NetworkScanner:
                 print('❌️ Host %s is not alive' % address)
             else:
                 print('✔️ [%fs] Host %s is alive. Checking ports...' % (latency, address))
-                ports_alive = self.check_ports(address, latency)
-                for port in ports_alive:
-                    print('🆗 Port %d is open.' % port)
+                self.check_ports(address, latency)
 
-    def fill_missing_octet_zeros(self, b):
+    @staticmethod
+    def fill_missing_octet_zeros(b):
         missing = BITS_PER_OCTET - len(b)
         return '0' * missing + b
 
     def address2bin(self, addr):
         return ''.join([self.fill_missing_octet_zeros(bin(int(n))[2:]) for n in addr.split('.')])
 
-    def bin2address(self, b):
+    @staticmethod
+    def bin2address(b):
         parts = [b[:8], b[8:16], b[16:24], b[24:32]]
         return '.'.join([str(int(p, 2)) for p in parts])
 
@@ -49,19 +50,22 @@ class NetworkScanner:
         return addresses
 
     def check_ports(self, host, timeout):
-        ports_alive = []
-        for port in range(0, PORTS_PER_HOST + 1):
-            if self.check_port(host, port, timeout * 1.5):
-                ports_alive.append(port)
-        return ports_alive
+        threads = []
+        for port in range(0, PORTS_PER_HOST):
+            thread = threading.Thread(target=self.check_port, args=(host, port, timeout * 1.5,))
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+            thread.join()
 
-    def check_port(self, host, port, timeout):
+    @staticmethod
+    def check_port(host, port, timeout):
         s = socket.socket()
         s.settimeout(timeout)
         try:
             s.connect((host, port))
-            status = True
-        except:
-            status = False
-        s.close()
-        return status
+            print('\t🆗 Port %d is open.' % port)
+        except (socket.error, socket.herror, socket.timeout, socket.gaierror):
+            pass
+        finally:
+            s.close()
