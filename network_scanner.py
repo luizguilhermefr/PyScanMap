@@ -1,3 +1,4 @@
+import csv
 import socket
 import threading
 from ping3 import ping
@@ -11,6 +12,12 @@ class NetworkScanner:
     def __init__(self, network, mask):
         self.network = network
         self.mask = mask
+        self.port_map = {}
+        with open('conf/ports.csv', 'r') as csvfile:
+            reader = csv.reader(csvfile)
+            for row in reader:
+                port, service, *_ = tuple(row)
+                self.port_map[int(port)] = service
 
     def scan(self):
         bin_addr = self.address2bin(self.network)
@@ -58,13 +65,15 @@ class NetworkScanner:
         for thread in threads:
             thread.join()
 
-    @staticmethod
-    def check_port(host, port, timeout):
+    def check_port(self, host, port, timeout):
         s = socket.socket()
         s.settimeout(timeout)
         try:
             s.connect((host, port))
-            print('\t🆗 Port %d is open.' % port)
+            service = 'unknown'
+            if port in self.port_map:
+                service = self.port_map[port]
+            print('\t🆗 Port %d is open [%s].' % (port, service))
         except (socket.error, socket.herror, socket.timeout, socket.gaierror):
             pass
         finally:
