@@ -1,7 +1,7 @@
 import csv
 import socket
 import threading
-from ping3 import ping
+import ping3
 
 MASK_LEN = 32
 BITS_PER_OCTET = 8
@@ -29,9 +29,12 @@ class NetworkScanner:
         net_address = self.make_valid_addresses(bin_addr[:ones_count], available_addresses)
 
         for address in net_address:
-            latency = ping(address, ttl=1)
-            if latency is None:
+            try:
+                latency = ping3.ping(address, ttl=1)
+            except (ping3.exception.TimeoutException, ping3.exception.DestinationUnreachableException):
                 print('❌️ Host %s is not alive' % address)
+            except ping3.exception.ExceededTimeToLiveException:
+                print('TTL -- do something')
             else:
                 print('✔️ [%fs] Host %s is alive. Checking ports...' % (latency, address))
                 self.check_ports(address, latency)
