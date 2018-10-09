@@ -30,14 +30,12 @@ class NetworkScanner:
 
         for address in net_address:
             try:
-                latency = ping3.ping(address, ttl=1)
-            except (ping3.exception.TimeoutException, ping3.exception.DestinationUnreachableException):
-                print('❌️ Host %s is not alive' % address)
-            except ping3.exception.ExceededTimeToLiveException:
-                print('TTL -- do something')
-            else:
-                print('✔️ [%fs] Host %s is alive. Checking ports...' % (latency, address))
+                latency = ping3.ping(address, use_exception=True)
+                print('✔️ [%f] Host %s is alive. Checking ports...' % (latency, address))
                 self.check_ports(address, latency)
+            except (ping3.exception.TimeoutException, ping3.exception.DestinationUnreachableException,
+                    ping3.exception.TimeToLiveExceededException):
+                print('❌️ Host %s is not alive' % address)
 
     @staticmethod
     def fill_missing_octet_zeros(b):
